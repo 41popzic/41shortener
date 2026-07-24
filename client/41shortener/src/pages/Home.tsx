@@ -30,7 +30,7 @@ function Home() {
         }
 
         setShortUrl(
-            `http://localhost:5173/${data.code}`
+            `http://localhost:3000/${data.code}`
         );
     }
 

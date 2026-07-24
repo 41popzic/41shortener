@@ -1,54 +1,74 @@
 import express from "express";
 import cors from "cors";
+import db from "./database";
 import { generateCode } from "./utils/generateCode";
+import rateLimit from "express-rate-limit";
 
 const app = express();
 
 app.use(cors());
+app.use(express.json());
+
+const limiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30
+});
+
+app.use("/api/", limiter);
 
 const PORT = 3000;
 
-const links: Record<string, string> = {
-};
 
+// API route
 app.get("/api/links/:code", (req, res) => {
     const { code } = req.params;
 
-    const url = links[code as keyof typeof links];
+    db.get(
+        "SELECT url FROM links WHERE code = ?",
+        [code],
+        (err, row) => {
+            if (err) {
+                return res.status(500).json({
+                    error: "Database error",
+                });
+            }
 
-    if (!url) {
-        return res.status(404).json({
-            error: "Link not found",
-        });
-    }
+            if (!row) {
+                return res.status(404).json({
+                    error: "Link not found",
+                });
+            }
 
-    res.json({
-        url,
-    });
+            res.json({
+                url: (row as { url: string }).url,
+            });
+        }
+    );
 });
+
+
+// Redirect route
+app.get("/:code", (req, res) => {
+    const { code } = req.params;
+
+    db.get(
+        "SELECT url FROM links WHERE code = ?",
+        [code],
+        (err, row) => {
+            if (err) {
+                return res.status(500).send("Database error");
+            }
+
+            if (!row) {
+                return res.status(404).send("Link not found");
+            }
+
+            res.redirect((row as { url: string }).url);
+        }
+    );
+});
+
 
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
-
-app.use(express.json());
-
-app.post("/api/links", (req, res) => {
-    const { url, customCode } = req.body;
-
-    if (!url) {
-        return res.status(400).json({
-            error: "URL required",
-        });
-    }
-
-    try {
-        new URL(url);
-    } catch {
-        return res.status(400).json({
-            error: "Invalid URL",
-        });
-    }
-
-    // continue creating the short link...
+    //console.log(`Server running on port ${PORT}`);
 });
